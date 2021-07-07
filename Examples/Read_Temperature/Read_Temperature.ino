@@ -66,7 +66,7 @@ void setup()
        Low threshold:  0x0000
        High threshold:  0x7fff
   */
-  rtd.configure( true, true, false, true, MAX31865_FAULT_DETECTION_NONE,
+  rtd.configure( true, true, true, false, MAX31865_FAULT_DETECTION_NONE,
                  true, true, 0x0000, 0x7fff );
 }
 
@@ -82,6 +82,10 @@ void loop()
     Serial.print( " T = ");
     Serial.print( temperature, 1 );
     Serial.println(" deg C" );
+    double resistance = rtd.resistance( );
+    Serial.print( " R = ");
+    Serial.print( resistance, 1 );
+    Serial.println(" Ohms" );
   }
   else 
   {
