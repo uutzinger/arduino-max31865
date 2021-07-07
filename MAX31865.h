@@ -54,26 +54,30 @@
    voltage. The ITS-90 standard is used; other RTDs
    may have coefficients defined by the DIN 43760 or
    the U.S. Industrial (American) standard. */
+#define RTD_A_MAXIM         3.9083e-3
+#define RTD_B_MAXIM        -5.775e-7
+#define RTD_C_MAXIM        -4.18301e-12
 #define RTD_A_ITS90         3.9080e-3
+#define RTD_B_ITS90        -5.870e-7
 #define RTD_A_USINDUSTRIAL  3.9692e-3
+#define RTD_B_USINDUSTRIAL -5.8495e-7
 #define RTD_A_DIN43760      3.9848e-3
-#define RTD_B_ITS90         -5.870e-7
-#define RTD_B_USINDUSTRIAL  -5.8495e-7
-#define RTD_B_DIN43760      -5.8019e-7
+#define RTD_B_DIN43760     -5.8019e-7
 /* RTD coefficient C is required only for temperatures
    below 0 deg. C.  The selected RTD coefficient set
    is specified below. */
 #define SELECT_RTD_HELPER(x) x
 #define SELECT_RTD(x) SELECT_RTD_HELPER(x)
-#define RTD_A         SELECT_RTD(RTD_A_ITS90)
-#define RTD_B         SELECT_RTD(RTD_B_ITS90)
+#define RTD_A         SELECT_RTD(RTD_A_MAXIM)
+#define RTD_B         SELECT_RTD(RTD_B_MAXIM)
+#define RTD_C         SELECT_RTD(RTD_C_MAXIM)
 /*
  * The reference resistor on the hardware; see the MAX31865 datasheet
  * for details.  The values 400 and 4000 Ohm are recommended values for
  * the PT100 and PT1000.
  */
-#define RTD_RREF_PT100         400 /* Ohm */
-#define RTD_RREF_PT1000       4000 /* Ohm */
+#define RTD_RREF_PT100         430 /* Ohm Adafruit:  430, Maxim:  400 */ 
+#define RTD_RREF_PT1000       4300 /* Ohm Adafruit: 4300, Maxim: 4000 */
 /*
  * The RTD resistance at 0 degrees Celcius.  For the PT100, this is 100 Ohm;
  * for the PT1000, it is 1000 Ohm.
@@ -81,7 +85,7 @@
 #define RTD_RESISTANCE_PT100   100 /* Ohm */
 #define RTD_RESISTANCE_PT1000 1000 /* Ohm */
 
-#define RTD_ADC_RESOLUTION  ( 1u << 15 ) /* 15 bits */
+#define RTD_ADC_RESOLUTION  ( 1u << 15 ) /* 15 bits or 32768*/
 
 
 /* See the main (MAX31865.cpp) file for documentation of the class methods. */

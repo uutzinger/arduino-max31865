@@ -146,6 +146,47 @@ void MAX31865_RTD::reconfigure( )
  */
 double MAX31865_RTD::temperature( ) const
 {
+  // Conversion from Adafruit_MAX31865
+  
+  float Rt = resistance( );
+  Serial.print("\nResistance: "); Serial.println(Rt, 8);
+
+  double t Z1, Z2, Z3, Z4, temp;
+
+  const double rtdNominal =
+    ( this->type == RTD_PT100 ) ? RTD_RESISTANCE_PT100 : RTD_RESISTANCE_PT1000;
+
+  Z1 = -RTD_A;
+  Z2 = RTD_A * RTD_A - (4 * RTD_B);
+  Z3 = (4 * RTD_B) / rtdNominal; 
+  Z4 = 2 * RTD_B;
+
+  temp = Z2 + (Z3 * double(Rt));
+  temp = (sqrt(temp) + Z1) / Z4;
+
+  if (temp >= 0)
+    return temp;
+
+   // ugh.
+  Rt /= rtdNominal;
+  Rt *= 100; // normalize to 100 ohm
+
+  double rpoly = double(Rt);
+
+  temp = -242.02;
+  temp += 2.2228 * rpoly;
+  rpoly *= Rt; // square
+  temp += 2.5859e-3 * rpoly;
+  rpoly *= Rt; // ^3
+  temp -= 4.8260e-6 * rpoly;
+  rpoly *= Rt; // ^4
+  temp -= 2.8183e-8 * rpoly;
+  rpoly *= Rt; // ^5
+  temp += 1.5243e-10 * rpoly;
+
+  return temp;
+  
+  /*
   static const double a2   = 2.0 * RTD_B;
   static const double b_sq = RTD_A * RTD_A;
 
@@ -157,6 +198,8 @@ double MAX31865_RTD::temperature( ) const
   double temperature_deg_C = ( -RTD_A + sqrt( D ) ) / a2;
 
   return( temperature_deg_C );
+  */
+
 }
 
 
