@@ -88,7 +88,7 @@ void loop()
     Serial.println(" deg C" );
 
     double ohmsx100 = rtd.resistance() * 100.0;
-    Serial.print( " T percise = ");
+    Serial.print( " T precise = ");
     Serial.print( PT100.celsius(ohmsx100), 1 );
     Serial.println(" deg C" );
 
@@ -130,4 +130,3 @@ void loop()
 
   delay( 3000 );
 }
-

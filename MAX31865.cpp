@@ -151,7 +151,7 @@ double MAX31865_RTD::temperature( ) const
   float Rt = resistance( );
   Serial.print("\nResistance: "); Serial.println(Rt, 8);
 
-  double t Z1, Z2, Z3, Z4, temp;
+  double Z1, Z2, Z3, Z4, temp;
 
   const double rtdNominal =
     ( this->type == RTD_PT100 ) ? RTD_RESISTANCE_PT100 : RTD_RESISTANCE_PT1000;
