@@ -11,11 +11,28 @@
 
 #include <SPI.h>
 
+const int chipSelectPin = 10;
+
 void configureMAX31865(){
+	
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
+  digitalWrite(chipSelectPin, LOW);
   SPI.transfer(0x80);
   if (WIRE==2 || WIRE==4) SPI.transfer(0xC2);
   if (WIRE==3) SPI.transfer(0xD2);
   delay(50);
+  
+  // 1 set wries
+  // 2 default bias is false
+  // 3 default autoconvert is false
+  // 4 clear fault MAX31865_CONFIG_FAULTSTAT2C
+  // set bias MAX31865_CONFIG_BIAS 0x80 0x00                1000 0000
+  // set autoconvert MAX31865_CONFIG_MODEAUTO 0x40 / 0x00   0100 0000
+  // set oneshot                              0x20 /        0010 0000
+  // set  enable 50Hz MAX31865_CONFIG_FILT50HZ 0x01 /0x00   
+  
+  digitalWrite(chipSelectPin, HIGH);  
+  SPI.endTransaction();
 } 
 
 double CallendarVanDusen(double R){
@@ -57,14 +74,17 @@ void printRegs(unsigned char *reg){
 }
 
 void setup(){
-  Serial.begin(9600);
+  Serial.begin(115200);
+
+  pinMode(chipSelectPin, OUTPUT);
+
   SPI.begin();
-  SPI.setClockDivider(200);
-  SPI.setDataMode(SPI_MODE3);
   
   delay(100);
   configureMAX31865();
 }
+
+5MHz
 
 void loop(){
   unsigned char reg[8];          // array for all the 8 registers
@@ -73,11 +93,23 @@ void loop(){
   unsigned int ADCcode;          // 15 bit value of ADC, RTDdata >> 1, 0th bit of RTDdata is RTD connection fault detection bit
   double R;                      // actual resistance of PT100(0) sensor
   
+  // clear fault
+  // enable bias
+  // one shot
+  // waits 65ms
+  // read
+  // turn off bias
+  
+  
+  
   delay(10);
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
+  digitalWrite(chipSelectPin, LOW);
   SPI.transfer(0);                                       // start reading from address=0
   for (i=0; i<8; i++) reg[i]=SPI.transfer(0);            // read all the 8 registers
   delay(10);
-
+  digitalWrite(chipSelectPin, HIGH);
+  SPI.endTransaction();
 
   RTDdata = reg[1] << 8 | reg[2];
   Serial.print("RTD data: 0x");
