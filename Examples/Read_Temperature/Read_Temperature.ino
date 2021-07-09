@@ -59,12 +59,13 @@ void setup()
   /* If auto conversion is off, start conversion by setting 1-shot to 1 and trigger measurement with CS going high */
   /* If V_BIAS is off it takes 10.5 * time constants to charge input RC network (about 10ms)*/
 
+  // clear fault and turn off vbias
   rtd.configure_control( 
                  false,     // V_BIAS enable
                  false,     // auto conversion
                  false,     // 1-shot, start conversion when CS goes high 
                  false,     // 3-wire enable
-                 MAX31865_FAULT_DETECTION_NONE, // fault detection automatic delay
+                 MAX31865_FAULT_DETECTION_NONE, // fault detection 
                  true,      // fault status auto clear
                  false);     // true = 50Hz filter, false = 60Hz
 
@@ -82,36 +83,46 @@ void loop()
   rtd.configure_control( 
                  true,     // V_BIAS enable
                  false,    // auto conversion
-                 false,    // 1-shot, start conversion when CS goes high 
+                 false,    // 1-shot, start conversion when CS goes high, auto clears 
                  false,    // 3-wire enable
-                 MAX31865_FAULT_DETECTION_NONE, // fault detection automatic delay
-                 true,     // fault status auto clear
+                 MAX31865_FAULT_DETECTION_NONE, // fault detection
+                 true,     // fault status, auto clears
                  false);   // true = 50Hz filter, false = 60Hz
+  
   // wait until RC network has setteled
   delay(10);
-  // set one shot, need to keep other settings same except fault clearing
+  
+  // set one shot
   rtd.configure_control(
                  true,     // V_BIAS enable
                  false,    // auto conversion
-                 true,     // 1-shot, start conversion when CS goes high 
+                 true,     // 1-shot, start conversion when CS goes high, auto clears
                  false,    // 3-wire enable
-                 MAX31865_FAULT_DETECTION_NONE, // fault detection automatic delay
-                 false,    // fault status auto clear
+                 MAX31865_FAULT_DETECTION_NONE, // fault detection
+                 false,    // fault status, auto clears
                  false);   // true = 50Hz filter, false = 60Hz
-
-  // read the conversion generated with previous command
+  
+  // enable conversion to complete
+  delay(65);
+  
+  //Read the MAX31865 registers in the following order:
+  //     Configuration
+  //     RTD
+  //     High Fault Threshold
+  //     Low Fault Threshold
+  //     Fault Status
+  // might want to read only RTD and fault
   uint8_t status = rtd.read_all( );
   
-  // disable V_BIAS, clear faults
+  // disable V_BIAS
   rtd.configure_control(
                  false,    // V_BIAS enable
                  false,    // auto conversion
-                 false,    // 1-shot, start conversion when CS goes high 
+                 false,    // 1-shot, start conversion when CS goes high, auto clears
                  false,    // 3-wire enable
                  MAX31865_FAULT_DETECTION_NONE, // fault detection automatic delay
-                 true,     // fault status auto clear
+                 false,    // fault status, auto clears
                  false);   // true = 50Hz filter, false = 60Hz
-
 
   if( status == 0 )
   {
@@ -157,6 +168,15 @@ void loop()
     {
       Serial.println( "Unknown fault; check connection" );
     }
+    // clear faults
+    rtd.configure_control( 
+                  false,    // V_BIAS enable
+                  false,    // auto conversion
+                  false,    // 1-shot, start conversion when CS goes high, auto clears 
+                  false,    // 3-wire enable
+                  MAX31865_FAULT_DETECTION_NONE, // fault detection
+                  true,     // fault status, auto clears
+                  false);   // true = 50Hz filter, false = 60Hz
   }
   
   delay( 1000 );

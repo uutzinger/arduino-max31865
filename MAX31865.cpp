@@ -71,6 +71,55 @@ MAX31865_RTD::MAX31865_RTD( ptd_type type, uint8_t cs_pin )
  * @param [in] low_threshold Low fault threshold.
  * @param [in] high_threshold High fault threshold.
 */
+
+/*
+Configuration register
+======================
+read 00h write 80
+
+[D7, D6, D5, D4, D3, D2, D1, D0]
+D7 VBIAS 1=On 0=Off 
+D6 Conversion Mode 1=Auto 0=Normally Off 
+D5 1-Shot 1=1-shot (then auto clear) 
+D4 3-wire, 1=3-wire, 0=2 or 4 wire rtd sensor
+D3, D2:
+XXXX00XXb write: no Action                                 read: fault detection finished
+100X010Xb write: fault detection with automatic delay,     read: automatic fault detection still running
+100X100Xb write: run fault detection with manula delay,    read: manual cycle 1 still running, waiting for user to write 11
+100X110Xb write: finish fault detection with manual delay, read: manucal cycle 2 still running
+D1 Fault Status Clear, 1=clear (then auto clear)
+D0 50/60Hz filter, 1=50Hz, 0=60Hz
+
+High Fault Threshold
+====================
+MSB read 03h write 83h
+LSB read 05h write 84h
+[MSB, D6, D5, D4, D3, D2, D1, D0][D7, D6, D5, D4, D3, D2, LSB, X]
+
+Low Fault Threshold
+===================
+read 05h write 85h
+read 06h write 86h
+
+Fault Status
+============
+[D7, D6, D5, D4, D3, D2, D1, D0]
+D7 High Threshold
+D6 Low Threhsold
+D5 REFIN > 0.85VBIAS
+D4 FORCE OPEN
+D3 FORCE CLOSE
+D2 Undervoltage fault
+D1 dont care
+D0 dont care
+
+Data Registers
+==============
+[D7 D6 D5 D4 D3 D2 D1 D0][D7 D6 D5 D4 D3 D2 D1  D0]
+MSB -  -  -  -  -  -  -   -  -  -  -  -  -  LSB Fault (any)
+*/
+
+
 void MAX31865_RTD::configure_all ( bool v_bias, bool conversion_mode, bool one_shot,
                                    bool three_wire, uint8_t fault_cycle, bool fault_clear,
                                    bool filter_50hz, uint16_t low_threshold,
@@ -107,6 +156,20 @@ void MAX31865_RTD::configure_thresholds ( uint16_t low_threshold, uint16_t high_
   reconfigure_thresholds();
 }
 
+void MAX31865_RTD::reconfigure_thresholds( )
+{
+  /* Write the threshold values. */
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
+  digitalWrite( this->cs_pin, LOW );
+  SPI.transfer( 0x83 );
+  SPI.transfer( ( this->configuration_high_threshold >> 8 ) & 0x00ff );
+  SPI.transfer(   this->configuration_high_threshold        & 0x00ff );
+  SPI.transfer( ( this->configuration_low_threshold >> 8 )  & 0x00ff );
+  SPI.transfer(   this->configuration_low_threshold         & 0x00ff );
+  digitalWrite( this->cs_pin, HIGH );
+  SPI.endTransaction();
+}
+
 void MAX31865_RTD::configure_control ( bool v_bias, bool conversion_mode, bool one_shot,
                                bool three_wire, uint8_t fault_cycle, bool fault_clear,
                                bool filter_50hz)
@@ -130,24 +193,6 @@ void MAX31865_RTD::configure_control ( bool v_bias, bool conversion_mode, bool o
   reconfigure_settings( );
 }
 
-/**
- * Reconfigure the MAX31865 by writing the stored control bits and the stored fault
- * threshold values back to the chip.
- */ 
-void MAX31865_RTD::reconfigure_thresholds( )
-{
-  /* Write the threshold values. */
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
-  digitalWrite( this->cs_pin, LOW );
-  SPI.transfer( 0x83 );
-  SPI.transfer( ( this->configuration_high_threshold >> 8 ) & 0x00ff );
-  SPI.transfer(   this->configuration_high_threshold        & 0x00ff );
-  SPI.transfer( ( this->configuration_low_threshold >> 8 )  & 0x00ff );
-  SPI.transfer(   this->configuration_low_threshold         & 0x00ff );
-  digitalWrite( this->cs_pin, HIGH );
-  SPI.endTransaction();
-}
-
 void MAX31865_RTD::reconfigure_settings( )
 {
   /* Write the configuration to the MAX31865. */
@@ -158,6 +203,60 @@ void MAX31865_RTD::reconfigure_settings( )
   digitalWrite( this->cs_pin, HIGH );
   SPI.endTransaction();
 }
+
+/**
+ * Read all settings and measurements from the MAX31865 and store them
+ * internally in the class.
+ *
+ * @return Fault status byte
+ *
+*/
+
+uint8_t MAX31865_RTD::read_all( )
+{
+  uint16_t combined_bytes;
+
+  /* Start the read operation. */
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
+  digitalWrite( this->cs_pin, LOW );
+
+  /* Read the MAX31865 registers in the following order:
+       Configuration
+       RTD
+       High Fault Threshold
+       Low Fault Threshold
+       Fault Status */
+
+  /* Tell the MAX31865 that we want to read, starting at register 0. */
+  SPI.transfer( 0x00 );
+
+  //00h
+  this->measured_configuration = SPI.transfer( 0x00 );
+
+  //01h
+  combined_bytes  = SPI.transfer( 0x00 ) << 8;
+  combined_bytes |= SPI.transfer( 0x00 );
+  this->measured_resistance = combined_bytes >> 1;
+
+  // 03h
+  combined_bytes  = SPI.transfer( 0x00 ) << 8;
+  combined_bytes |= SPI.transfer( 0x00 );
+  this->measured_high_threshold = combined_bytes >> 1;
+  
+  // 05h
+  combined_bytes  = SPI.transfer( 0x00 ) << 8;
+  combined_bytes |= SPI.transfer( 0x00 );
+  this->measured_low_threshold = combined_bytes >> 1;
+
+  // 07h
+  this->measured_status = SPI.transfer( 0x00 );
+
+  digitalWrite( this->cs_pin, HIGH );
+  SPI.endTransaction();
+
+  return( status( ) );
+}
+
 
 /**
  * Apply the Callendar-Van Dusen equation to convert the RTD resistance
@@ -220,59 +319,3 @@ double MAX31865_RTD::temperature( ) const
   return temp;
 
 }
-
-
-/**
- * Read all settings and measurements from the MAX31865 and store them
- * internally in the class.
- *
- * @return Fault status byte
- */
-uint8_t MAX31865_RTD::read_all( )
-{
-  uint16_t combined_bytes;
-
-  /* Start the read operation. */
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
-  digitalWrite( this->cs_pin, LOW );
-  /* Tell the MAX31865 that we want to read, starting at register 0. */
-  SPI.transfer( 0x00 );
-
-  /* Read the MAX31865 registers in the following order:
-       Configuration
-       RTD
-       High Fault Threshold
-       Low Fault Threshold
-       Fault Status */
-
-  this->measured_configuration = SPI.transfer( 0x00 );
-
-  combined_bytes  = SPI.transfer( 0x00 ) << 8;
-  combined_bytes |= SPI.transfer( 0x00 );
-  this->measured_resistance = combined_bytes >> 1;
-
-  combined_bytes  = SPI.transfer( 0x00 ) << 8;
-  combined_bytes |= SPI.transfer( 0x00 );
-  this->measured_high_threshold = combined_bytes >> 1;
-
-  combined_bytes  = SPI.transfer( 0x00 ) << 8;
-  combined_bytes |= SPI.transfer( 0x00 );
-  this->measured_low_threshold = combined_bytes >> 1;
-
-  this->measured_status = SPI.transfer( 0x00 );
-
-  digitalWrite( this->cs_pin, HIGH );
-  SPI.endTransaction();
-
-  /* Reset the configuration if the measured resistance is
-     zero or a fault occurred. */
-  if(    ( this->measured_resistance == 0 )
-      || ( this->measured_status != 0 ) )
-  {
-    reconfigure_settings( );
-    reconfigure_thresholds( );
-  }
-
-  return( status( ) );
-}
-
