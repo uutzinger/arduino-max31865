@@ -118,6 +118,11 @@ void loop()
     Serial.print( resistance, 1 );
     Serial.println(" Ohms" );
 
+    // Need to check this
+	//dummy = ((uint32_t)(rtd << 1)) * 100 * ((uint32_t) floor(RREF)) ;
+	//dummy >>= 16 ;
+	//ohmsx100 = (uint16_t) (dummy & 0xFFFF) ;
+    //double ohmsx100 = rtd.raw_resistance() * 100.0;
     double ohmsx100 = rtd.resistance() * 100.0;
     Serial.print( " T precise = ");
     Serial.print( PT100.celsius(uint16_t(ohmsx100)), 1 );
