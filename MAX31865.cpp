@@ -29,7 +29,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
 **************************************************************************/
 
-#include <Arduino.h>
 #include <SPI.h>
 #include <MAX31865.h>
 
@@ -95,13 +94,13 @@ void MAX31865_RTD::configure_all ( bool v_bias, bool conversion_mode, bool one_s
   this->configuration_high_threshold = high_threshold;
 
   /* Perform an initial "reconfiguration." */
-  reconfigure_settings( );
-  reconfigure_thresholds( );
+  reconfigure_settings();
+  reconfigure_thresholds();
 }
 
 void MAX31865_RTD::configure ( bool v_bias, bool conversion_mode, bool one_shot,
                                bool three_wire, uint8_t fault_cycle, bool fault_clear,
-                               bool filter_50hz,)
+                               bool filter_50hz)
 {
   uint8_t control_bits = 0;
 
@@ -264,7 +263,7 @@ uint8_t MAX31865_RTD::read_all( )
       || ( this->measured_status != 0 ) )
   {
     reconfigure_settings( );
-    reconfigure_threshold( );
+    reconfigure_thresholds( );
   }
 
   return( status( ) );

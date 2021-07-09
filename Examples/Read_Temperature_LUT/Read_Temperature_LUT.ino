@@ -120,7 +120,7 @@ void loop()
 
     double ohmsx100 = rtd.resistance() * 100.0;
     Serial.print( " T precise = ");
-    Serial.print( PT100.celsius(ohmsx100), 1 );
+    Serial.print( PT100.celsius(uint16_t(ohmsx100)), 1 );
     Serial.println(" deg C" );
 
   }
