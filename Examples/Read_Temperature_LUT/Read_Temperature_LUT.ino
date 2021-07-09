@@ -60,24 +60,26 @@ void setup()
   /* 1-Shot starts conversion when CS goes high */
   /* If V_BIAS is off it takes 10.5 time constants to charge input RC network (Adafruit waits 10ms)*/
 
-  rtd.configure_all( false, // V_BIAS enable
+  rtd.configure_control( 
+                 false,     // V_BIAS enable
                  false,     // auto conversion
                  false,     // 1-shot, start conversion when CS goes high 
                  false,     // 3-wire enable
                  MAX31865_FAULT_DETECTION_NONE, // fault detection automatic delay
                  true,      // fault status auto clear
-                 false,     // true = 50Hz filter, false = 60Hz
+                 false);    // true = 50Hz filter, false = 60Hz
+
+  rtd.configure_thresholds(
                  0x0000,    // Low Thresh 0x0000
                  0x7fff );  // High Thresh 0x7fff
 }
 
-
-
 void loop() 
 {
 
-  // enable V_BIAS 
-  rtd.configure( true,     // V_BIAS enable
+  // enable V_BIAS, clear faults
+  rtd.configure_control( 
+                 true,     // V_BIAS enable
                  false,    // auto conversion
                  false,    // 1-shot, start conversion when CS goes high 
                  false,    // 3-wire enable
@@ -86,19 +88,22 @@ void loop()
                  false);   // true = 50Hz filter, false = 60Hz
   // wait until RC network has setteled
   delay(10);
-  // enable enable one shot, need to keep other settings same
-  rtd.configure( true,     // V_BIAS enable
+  // enable enable one shot, need to keep other settings same except fault clearing
+  rtd.configure_control(
+                 true,     // V_BIAS enable
                  false,    // auto conversion
                  true,     // 1-shot, start conversion when CS goes high 
                  false,    // 3-wire enable
                  MAX31865_FAULT_DETECTION_NONE, // fault detection automatic delay
-                 true,     // fault status auto clear
+                 false,    // fault status auto clear
                  false);   // true = 50Hz filter, false = 60Hz
 
+  // read the conversion generated with previous command
   uint8_t status = rtd.read_all( );
-
-  // disable V_BIAS
-  rtd.configure( false,    // V_BIAS enable
+  
+  // disable V_BIAS, clear faults
+  rtd.configure_control(
+                 false,    // V_BIAS enable
                  false,    // auto conversion
                  false,    // 1-shot, start conversion when CS goes high 
                  false,    // 3-wire enable

@@ -98,7 +98,16 @@ void MAX31865_RTD::configure_all ( bool v_bias, bool conversion_mode, bool one_s
   reconfigure_thresholds();
 }
 
-void MAX31865_RTD::configure ( bool v_bias, bool conversion_mode, bool one_shot,
+void MAX31865_RTD::configure_thresholds ( uint16_t low_threshold, uint16_t high_threshold )
+{
+  this->configuration_low_threshold  = low_threshold;
+  this->configuration_high_threshold = high_threshold;
+
+  /* Perform an initial "reconfiguration." */  reconfigure_settings();
+  reconfigure_thresholds();
+}
+
+void MAX31865_RTD::configure_control ( bool v_bias, bool conversion_mode, bool one_shot,
                                bool three_wire, uint8_t fault_cycle, bool fault_clear,
                                bool filter_50hz)
 {
@@ -154,65 +163,61 @@ void MAX31865_RTD::reconfigure_settings( )
  * Apply the Callendar-Van Dusen equation to convert the RTD resistance
  * to temperature:
  *
- *   \f[
- *   t=\frac{-A\pm \sqrt{A^2-4B\left(1-\frac{R_t}{R_0}\right)}}{2B}
- *   \f],
+ * for T>=0
+ *  T(r) = (Z1 + sqrt(Z2 + Z3*r)) / Z4
+ *  with Z1 = -A
+ *  with Z2 = A^2 -4*B
+ *  with Z3 = 4*B/R0
+ *  with Z4 = 2*B
  *
- * where
- *
- * \f$A\f$ and \f$B\f$ are the RTD coefficients, \f$R_t\f$ is the current
- * resistance of the RTD, and \f$R_0\f$ is the resistance of the RTD at 0
- * degrees Celcius.
+ * for T < 0
+ *  T(r) = –242.02 2.2228*r + 2.5859e-3*r^2 – 4.8260r^3 – 2.8183e-8*r^4 +1.5243e-10*r^5
  *
  * For more information on measuring with an RTD, see:
- * <http://newton.ex.ac.uk/teaching/CDHW/Sensors/an046.pdf>.
+ * https://www.analog.com/media/en/technical-documentation/application-notes/AN709_0.pdf
+ *
+ * This should result in less than 0.01 deg C error
  *
  * @param [in] resistance The measured RTD resistance.
  * @return Temperature in degrees Celcius.
  */
 double MAX31865_RTD::temperature( ) const
 {
-  // Conversion from Adafruit_MAX31865
   
-  float Rt = resistance( );
-  // Serial.print("\nResistance: "); Serial.println(Rt, 8);
+  double Rt = double(resistance());
 
-  double Z1, Z2, Z3, Z4, temp;
+  double Z1, Z2, Z3, Z4, temp, rpoly;
 
-  const double rtdNominal =
-    ( this->type == RTD_PT100 ) ? RTD_RESISTANCE_PT100 : RTD_RESISTANCE_PT1000;
+  const double rtdNominal = ( this->type == RTD_PT100 ) ? RTD_RESISTANCE_PT100 : RTD_RESISTANCE_PT1000;
 
   Z1 = -RTD_A;
   Z2 = RTD_A * RTD_A - (4 * RTD_B);
   Z3 = (4 * RTD_B) / rtdNominal; 
   Z4 = 2 * RTD_B;
 
-  temp = Z2 + (Z3 * double(Rt));
+  temp = Z2 + (Z3 * Rt);
   temp = (sqrt(temp) + Z1) / Z4;
 
-  if (temp >= 0)
-    return temp;
+  if (temp >= 0) return temp;
 
   Rt /= rtdNominal;
   Rt *= 100; // normalize to 100 ohm
 
-  double rpoly = double(Rt);
-
-  temp = -242.02;
-  temp += 2.2228 * rpoly;
+  rpoly  = Rt; // linear
+  temp   = -242.02;
+  temp  +=  2.2228 * rpoly;
   rpoly *= Rt; // square
-  temp += 2.5859e-3 * rpoly;
+  temp  +=  2.5859e-3 * rpoly ;
   rpoly *= Rt; // ^3
-  temp -= 4.8260e-6 * rpoly;
+  temp  -= 4.8260e-6 * rpoly;
   rpoly *= Rt; // ^4
-  temp -= 2.8183e-8 * rpoly;
+  temp  -= 2.8183e-8 * rpoly;
   rpoly *= Rt; // ^5
-  temp += 1.5243e-10 * rpoly;
+  temp  += 1.5243e-10 * rpoly;
 
   return temp;
 
 }
-
 
 
 /**

@@ -94,11 +94,12 @@ public:
   enum ptd_type { RTD_PT100, RTD_PT1000 };
 
   MAX31865_RTD( ptd_type type, uint8_t cs_pin );
-  void configure_all( bool v_bias, bool conversion_mode, bool one_shot, bool three_wire,
-                      uint8_t fault_cycle, bool fault_clear, bool filter_50hz,
-                      uint16_t low_threshold, uint16_t high_threshold );
-  void configure    ( bool v_bias, bool conversion_mode, bool one_shot, bool three_wire,
-                      uint8_t fault_cycle, bool fault_clear, bool filter_50hz);
+  void configure_all        ( bool v_bias, bool conversion_mode, bool one_shot, bool three_wire,
+                              uint8_t fault_cycle, bool fault_clear, bool filter_50hz,
+                              uint16_t low_threshold, uint16_t high_threshold );
+  void configure_control    ( bool v_bias, bool conversion_mode, bool one_shot, bool three_wire,
+                              uint8_t fault_cycle, bool fault_clear, bool filter_50hz);
+  void configure_thresholds ( uint16_t low_threshold, uint16_t high_threshold );
   uint8_t read_all( );
   double temperature( ) const;
   uint8_t status( ) const { return( measured_status ); }
