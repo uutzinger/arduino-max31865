@@ -72,21 +72,21 @@ MAX31865_RTD::MAX31865_RTD( ptd_type type, uint8_t cs_pin )
  * @param [in] low_threshold Low fault threshold.
  * @param [in] high_threshold High fault threshold.
 */
-void MAX31865_RTD::configure( bool v_bias, bool conversion_mode, bool one_shot,
-                              bool three_wire, uint8_t fault_cycle, bool fault_clear,
-                              bool filter_50hz, uint16_t low_threshold,
-                              uint16_t high_threshold )
+void MAX31865_RTD::configure_all ( bool v_bias, bool conversion_mode, bool one_shot,
+                                   bool three_wire, uint8_t fault_cycle, bool fault_clear,
+                                   bool filter_50hz, uint16_t low_threshold,
+                                   uint16_t high_threshold )
 {
   uint8_t control_bits = 0;
 
   /* Assemble the control bit mask. */
-  control_bits |= ( v_bias ? 0x80 : 0 );
+  control_bits |= (          v_bias ? 0x80 : 0 );
   control_bits |= ( conversion_mode ? 0x40 : 0 );
-  control_bits |= ( one_shot ? 0x20 : 0 );
-  control_bits |= ( three_wire ? 0x10 : 0 );
-  control_bits |= fault_cycle & 0b00001100;
-  control_bits |= ( fault_clear ? 0x02 : 0 );
-  control_bits |= ( filter_50hz ? 0x01 : 0 );
+  control_bits |= (        one_shot ? 0x20 : 0 );
+  control_bits |= (      three_wire ? 0x10 : 0 );
+  control_bits |=       fault_cycle & 0b00001100;
+  control_bits |= (     fault_clear ? 0x02 : 0 );
+  control_bits |= (     filter_50hz ? 0x01 : 0 );
 
   /* Store the control bits and the fault threshold limits for reconfiguration
      purposes. */
@@ -95,34 +95,61 @@ void MAX31865_RTD::configure( bool v_bias, bool conversion_mode, bool one_shot,
   this->configuration_high_threshold = high_threshold;
 
   /* Perform an initial "reconfiguration." */
-  reconfigure( );
+  reconfigure_settings( );
+  reconfigure_thresholds( );
 }
 
+void MAX31865_RTD::configure ( bool v_bias, bool conversion_mode, bool one_shot,
+                               bool three_wire, uint8_t fault_cycle, bool fault_clear,
+                               bool filter_50hz,)
+{
+  uint8_t control_bits = 0;
 
+  /* Assemble the control bit mask. */
+  control_bits |= (          v_bias ? 0x80 : 0 );
+  control_bits |= ( conversion_mode ? 0x40 : 0 );
+  control_bits |= (        one_shot ? 0x20 : 0 );
+  control_bits |= (      three_wire ? 0x10 : 0 );
+  control_bits |=       fault_cycle & 0b00001100;
+  control_bits |= (     fault_clear ? 0x02 : 0 );
+  control_bits |= (     filter_50hz ? 0x01 : 0 );
+
+  /* Store the control bits and the fault threshold limits for reconfiguration
+     purposes. */
+  this->configuration_control_bits   = control_bits;
+
+  /* Perform an initial "reconfiguration." */
+  reconfigure_settings( );
+}
 
 /**
  * Reconfigure the MAX31865 by writing the stored control bits and the stored fault
  * threshold values back to the chip.
  */ 
-void MAX31865_RTD::reconfigure( )
+void MAX31865_RTD::reconfigure_thresholds( )
 {
-  /* Write the configuration to the MAX31865. */
-  digitalWrite( this->cs_pin, LOW );
-  SPI.transfer( 0x80 );
-  SPI.transfer( this->configuration_control_bits );
-  digitalWrite( this->cs_pin, HIGH );
-
   /* Write the threshold values. */
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
   digitalWrite( this->cs_pin, LOW );
   SPI.transfer( 0x83 );
   SPI.transfer( ( this->configuration_high_threshold >> 8 ) & 0x00ff );
   SPI.transfer(   this->configuration_high_threshold        & 0x00ff );
-  SPI.transfer( ( this->configuration_low_threshold >> 8 ) & 0x00ff );
-  SPI.transfer(   this->configuration_low_threshold        & 0x00ff );
+  SPI.transfer( ( this->configuration_low_threshold >> 8 )  & 0x00ff );
+  SPI.transfer(   this->configuration_low_threshold         & 0x00ff );
   digitalWrite( this->cs_pin, HIGH );
+  SPI.endTransaction();
 }
 
-
+void MAX31865_RTD::reconfigure_settings( )
+{
+  /* Write the configuration to the MAX31865. */
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
+  digitalWrite( this->cs_pin, LOW );
+  SPI.transfer( 0x80 );
+  SPI.transfer( this->configuration_control_bits );
+  digitalWrite( this->cs_pin, HIGH );
+  SPI.endTransaction();
+}
 
 /**
  * Apply the Callendar-Van Dusen equation to convert the RTD resistance
@@ -149,7 +176,7 @@ double MAX31865_RTD::temperature( ) const
   // Conversion from Adafruit_MAX31865
   
   float Rt = resistance( );
-  Serial.print("\nResistance: "); Serial.println(Rt, 8);
+  // Serial.print("\nResistance: "); Serial.println(Rt, 8);
 
   double Z1, Z2, Z3, Z4, temp;
 
@@ -167,7 +194,6 @@ double MAX31865_RTD::temperature( ) const
   if (temp >= 0)
     return temp;
 
-   // ugh.
   Rt /= rtdNominal;
   Rt *= 100; // normalize to 100 ohm
 
@@ -185,20 +211,6 @@ double MAX31865_RTD::temperature( ) const
   temp += 1.5243e-10 * rpoly;
 
   return temp;
-  
-  /*
-  static const double a2   = 2.0 * RTD_B;
-  static const double b_sq = RTD_A * RTD_A;
-
-  const double rtd_resistance =
-    ( this->type == RTD_PT100 ) ? RTD_RESISTANCE_PT100 : RTD_RESISTANCE_PT1000;
-
-  double c = 1.0 - resistance( ) / rtd_resistance;
-  double D = b_sq - 2.0 * a2 * c;
-  double temperature_deg_C = ( -RTD_A + sqrt( D ) ) / a2;
-
-  return( temperature_deg_C );
-  */
 
 }
 
@@ -215,6 +227,7 @@ uint8_t MAX31865_RTD::read_all( )
   uint16_t combined_bytes;
 
   /* Start the read operation. */
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
   digitalWrite( this->cs_pin, LOW );
   /* Tell the MAX31865 that we want to read, starting at register 0. */
   SPI.transfer( 0x00 );
@@ -243,13 +256,15 @@ uint8_t MAX31865_RTD::read_all( )
   this->measured_status = SPI.transfer( 0x00 );
 
   digitalWrite( this->cs_pin, HIGH );
+  SPI.endTransaction();
 
   /* Reset the configuration if the measured resistance is
      zero or a fault occurred. */
   if(    ( this->measured_resistance == 0 )
       || ( this->measured_status != 0 ) )
   {
-    reconfigure( );
+    reconfigure_settings( );
+    reconfigure_threshold( );
   }
 
   return( status( ) );

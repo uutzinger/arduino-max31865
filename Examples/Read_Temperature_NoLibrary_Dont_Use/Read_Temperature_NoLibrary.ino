@@ -35,6 +35,35 @@ void configureMAX31865(){
   SPI.endTransaction();
 } 
 
+void writeRegister8(uint8_t addr, uint8_t data) {
+  addr |= 0x80; // make sure top bit is set
+
+  uint8_t buffer[2] = {addr, data};
+  spi_dev.write(buffer, 2);
+   beginTransaction
+   set cs low
+   transfer buffer Null len
+   
+   set cs highvideo
+   end transaction
+   
+}
+
+void clearFault(void) {
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
+  digitalWrite(chipSelectPin, LOW);
+  SPI.transfer(0x00);  
+
+  uint8_t t = (0x00); //MAX31865_CONFIG_REG 
+  t &= ~0x2C;
+  t |= MAX31865_CONFIG_FAULTSTAT;
+
+  digitalWrite(chipSelectPin, HIGH);  
+  SPI.endTransaction();
+  
+  writeRegister8(MAX31865_CONFIG_REG, t);
+}
+
 double CallendarVanDusen(double R){
   double a = 3.9083E-03;
   double b = -5.7750E-07;

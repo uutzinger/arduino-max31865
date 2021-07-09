@@ -35,7 +35,6 @@
 
 #include <stdint.h>
 
-
 #define MAX31865_FAULT_HIGH_THRESHOLD  ( 1 << 7 )
 #define MAX31865_FAULT_LOW_THRESHOLD   ( 1 << 6 )
 #define MAX31865_FAULT_REFIN           ( 1 << 5 )
@@ -95,9 +94,11 @@ public:
   enum ptd_type { RTD_PT100, RTD_PT1000 };
 
   MAX31865_RTD( ptd_type type, uint8_t cs_pin );
-  void configure( bool v_bias, bool conversion_mode, bool one_shot, bool three_wire,
-                  uint8_t fault_cycle, bool fault_clear, bool filter_50hz,
-                  uint16_t low_threshold, uint16_t high_threshold );
+  void configure_all( bool v_bias, bool conversion_mode, bool one_shot, bool three_wire,
+                      uint8_t fault_cycle, bool fault_clear, bool filter_50hz,
+                      uint16_t low_threshold, uint16_t high_threshold );
+  void configure    ( bool v_bias, bool conversion_mode, bool one_shot, bool three_wire,
+                      uint8_t fault_cycle, bool fault_clear, bool filter_50hz);
   uint8_t read_all( );
   double temperature( ) const;
   uint8_t status( ) const { return( measured_status ); }
@@ -118,7 +119,8 @@ private:
   uint8_t  configuration_control_bits;
   uint16_t configuration_low_threshold;
   uint16_t configuration_high_threshold;
-  void reconfigure( );
+  void reconfigure_settings( );
+  void reconfigure_thresholds( );
 
   /* Values read from the device. */
   uint8_t  measured_configuration;

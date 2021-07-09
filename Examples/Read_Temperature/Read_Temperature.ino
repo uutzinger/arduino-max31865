@@ -48,35 +48,65 @@ void setup()
 
   /* Initialize SPI communication. */
   SPI.begin( );
-  SPI.setClockDivider( SPI_CLOCK_DIV16 );
-  SPI.setDataMode( SPI_MODE3 );
 
   /* Allow the MAX31865 to warm up. */
   delay( 100 );
 
-  /* Configure:
+  /* Configure:  */
+  /* Single Shot turn on V_BIAS before reading then turn off to reduce power dissipation */
+  /* Conversion Mode: If true, continouse conversion 50/60Hz
+  /* If auto conversion is true, continous conversion, V_BIAS needs to be on all the time */
+  /* If auto conversion is off, start conversion by setting 1-shot and trigger measurement with CS */
+  /* 1-Shot starts conversion when CS goes high */
+  /* If V_BIAS is off it takes 10.5 time constants to charge input RC network (Adafruit waits 10ms)*/
 
-       V_BIAS enabled
-       Auto-conversion
-       1-shot disabled
-       3-wire enabled
-       Fault detection:  automatic delay
-       Fault status:  auto-clear
-       50 Hz filter
-       Low threshold:  0x0000
-       High threshold:  0x7fff
-  */
-  rtd.configure( true, true, true, false, MAX31865_FAULT_DETECTION_NONE,
-                 true, true, 0x0000, 0x7fff );
+  rtd.configure_all( false, // V_BIAS enable
+                 false,     // auto conversion
+                 false,     // 1-shot, start conversion when CS goes high 
+                 false,     // 3-wire enable
+                 MAX31865_FAULT_DETECTION_NONE, // fault detection automatic delay
+                 true,      // fault status auto clear
+                 false,     // true = 50Hz filter, false = 60Hz
+                 0x0000,    // Low Thresh 0x0000
+                 0x7fff );  // High Thresh 0x7fff
 }
 
 
 
 void loop() 
 {
-  rtd.read_all( );
 
-  if( rtd.status( ) == 0 )
+  // enable V_BIAS 
+  rtd.configure( true,     // V_BIAS enable
+                 false,    // auto conversion
+                 false,    // 1-shot, start conversion when CS goes high 
+                 false,    // 3-wire enable
+                 MAX31865_FAULT_DETECTION_NONE, // fault detection automatic delay
+                 true,     // fault status auto clear
+                 false);   // true = 50Hz filter, false = 60Hz
+  // wait until RC network has setteled
+  delay(10);
+  // enable enable one shot, need to keep other settings same
+  rtd.configure( true,     // V_BIAS enable
+                 false,    // auto conversion
+                 true,     // 1-shot, start conversion when CS goes high 
+                 false,    // 3-wire enable
+                 MAX31865_FAULT_DETECTION_NONE, // fault detection automatic delay
+                 true,     // fault status auto clear
+                 false);   // true = 50Hz filter, false = 60Hz
+
+  uint8_t status = rtd.read_all( );
+
+  // disable V_BIAS
+  rtd.configure( false,    // V_BIAS enable
+                 false,    // auto conversion
+                 false,    // 1-shot, start conversion when CS goes high 
+                 false,    // 3-wire enable
+                 MAX31865_FAULT_DETECTION_NONE, // fault detection automatic delay
+                 true,     // fault status auto clear
+                 false);   // true = 50Hz filter, false = 60Hz
+
+  if( status == 0 )
   {
     double temperature = rtd.temperature( );
     Serial.print( " T = ");
@@ -90,29 +120,29 @@ void loop()
   else 
   {
     Serial.print( "RTD fault register: " );
-    Serial.print( rtd.status( ) );
+    Serial.print( status );
     Serial.print( ": " );
-    if( rtd.status( ) & MAX31865_FAULT_HIGH_THRESHOLD )
+    if( status & MAX31865_FAULT_HIGH_THRESHOLD )
     {
       Serial.println( "RTD high threshold exceeded" );
     }
-    else if( rtd.status( ) & MAX31865_FAULT_LOW_THRESHOLD )
+    else if( status & MAX31865_FAULT_LOW_THRESHOLD )
     {
       Serial.println( "RTD low threshold exceeded" );
     }
-    else if( rtd.status( ) & MAX31865_FAULT_REFIN )
+    else if( status & MAX31865_FAULT_REFIN )
     {
       Serial.println( "REFIN- > 0.85 x V_BIAS" );
     }
-    else if( rtd.status( ) & MAX31865_FAULT_REFIN_FORCE )
+    else if( status & MAX31865_FAULT_REFIN_FORCE )
     {
       Serial.println( "REFIN- < 0.85 x V_BIAS, FORCE- open" );
     }
-    else if( rtd.status( ) & MAX31865_FAULT_RTDIN_FORCE )
+    else if( status & MAX31865_FAULT_RTDIN_FORCE )
     {
       Serial.println( "RTDIN- < 0.85 x V_BIAS, FORCE- open" );
     }
-    else if( rtd.status( ) & MAX31865_FAULT_VOLTAGE )
+    else if( status & MAX31865_FAULT_VOLTAGE )
     {
       Serial.println( "Overvoltage/undervoltage fault");
     }
@@ -121,6 +151,6 @@ void loop()
       Serial.println( "Unknown fault; check connection" );
     }
   }
-
-  delay( 3000 );
+  
+  delay( 1000 );
 }
