@@ -58,7 +58,7 @@ void setup()
   /* If auto conversion is true, continous conversion, V_BIAS needs to be on all the time */
   /* If auto conversion is off, start conversion by setting 1-shot and trigger measurement with CS */
   /* 1-Shot starts conversion when CS goes high */
-  /* If V_BIAS is off it takes 10.5 time constants to charge input RC network (Adafruit waits 10ms)*/
+  /* If V_BIAS is off it takes 10.5 time constants to charge input RC network (about 10ms)*/
 
   rtd.configure_control( 
                  false,     // V_BIAS enable
@@ -88,7 +88,7 @@ void loop()
                  false);   // true = 50Hz filter, false = 60Hz
   // wait until RC network has setteled
   delay(10);
-  // enable enable one shot, need to keep other settings same except fault clearing
+  // enable one shot, need to keep other settings same except fault clearing
   rtd.configure_control(
                  true,     // V_BIAS enable
                  false,    // auto conversion
@@ -116,7 +116,7 @@ void loop()
     double temperature = rtd.temperature( );
     Serial.print( " T = ");
     Serial.print( temperature, 1 );
-    Serial.println(" deg C" );
+    Serial.println(" deg C +/- 0.01" );
 
     double resistance = rtd.resistance( );
     Serial.print( " R = ");
@@ -131,7 +131,7 @@ void loop()
     double ohmsx100 = rtd.resistance() * 100.0;
     Serial.print( " T precise = ");
     Serial.print( PT100.celsius(uint16_t(ohmsx100)), 1 );
-    Serial.println(" deg C" );
+    Serial.println(" deg C +/- 0.001" );
 
   }
   else 

@@ -54,11 +54,10 @@ void setup()
 
   /* Configure:  */
   /* Single Shot turn on V_BIAS before reading then turn off to reduce power dissipation */
-  /* Conversion Mode: If true, continouse conversion 50/60Hz
-  /* If auto conversion is true, continous conversion, V_BIAS needs to be on all the time */
-  /* If auto conversion is off, start conversion by setting 1-shot and trigger measurement with CS */
-  /* 1-Shot starts conversion when CS goes high */
-  /* If V_BIAS is off it takes 10.5 time constants to charge input RC network (Adafruit waits 10ms)*/
+  /* Conversion Mode: If true, continouse conversion at 50 or 60Hz
+  /* If auto conversion is true, V_BIAS needs to be on all the time */
+  /* If auto conversion is off, start conversion by setting 1-shot to 1 and trigger measurement with CS going high */
+  /* If V_BIAS is off it takes 10.5 * time constants to charge input RC network (about 10ms)*/
 
   rtd.configure_control( 
                  false,     // V_BIAS enable
@@ -90,7 +89,7 @@ void loop()
                  false);   // true = 50Hz filter, false = 60Hz
   // wait until RC network has setteled
   delay(10);
-  // enable enable one shot, need to keep other settings same except fault clearing
+  // set one shot, need to keep other settings same except fault clearing
   rtd.configure_control(
                  true,     // V_BIAS enable
                  false,    // auto conversion

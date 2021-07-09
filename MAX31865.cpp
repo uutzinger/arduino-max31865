@@ -170,6 +170,8 @@ void MAX31865_RTD::reconfigure_settings( )
  *  with Z3 = 4*B/R0
  *  with Z4 = 2*B
  *
+ * A and B are the RTD coeffients
+ *
  * for T < 0
  *  T(r) = –242.02 2.2228*r + 2.5859e-3*r^2 – 4.8260r^3 – 2.8183e-8*r^4 +1.5243e-10*r^5
  *

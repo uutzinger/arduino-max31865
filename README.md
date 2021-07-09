@@ -9,6 +9,8 @@ This library was updated to work on **Teensy** (tested on 4.0) and to use curren
 
 It has been tested with [Adafruit Breakout Board](https://learn.adafruit.com/adafruit-max31865-rtd-pt100-amplifier)
 
+The PT-100 sensor is rated from -200C to 550C.
+
 There are two examples:
 
 - ReadTemperature.ino which uses adafruit resistance to temperature conversion
