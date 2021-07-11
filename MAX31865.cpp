@@ -93,7 +93,7 @@ D0 50/60Hz filter, 1=50Hz, 0=60Hz
 High Fault Threshold
 ====================
 MSB read 03h write 83h
-LSB read 05h write 84h
+LSB read 04h write 84h
 [MSB, D6, D5, D4, D3, D2, D1, D0][D7, D6, D5, D4, D3, D2, LSB, X]
 
 Low Fault Threshold
@@ -103,6 +103,7 @@ read 06h write 86h
 
 Fault Status
 ============
+read: 07h
 [D7, D6, D5, D4, D3, D2, D1, D0]
 D7 High Threshold
 D6 Low Threhsold
@@ -115,6 +116,7 @@ D0 dont care
 
 Data Registers
 ==============
+address read: 0x01h and 0x02h
 [D7 D6 D5 D4 D3 D2 D1 D0][D7 D6 D5 D4 D3 D2 D1  D0]
 MSB -  -  -  -  -  -  -   -  -  -  -  -  -  LSB Fault (any)
 */
@@ -162,10 +164,10 @@ void MAX31865_RTD::reconfigure_thresholds( )
   SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
   digitalWrite( this->cs_pin, LOW );
   SPI.transfer( 0x83 );
-  SPI.transfer( ( this->configuration_high_threshold >> 8 ) & 0x00ff );
-  SPI.transfer(   this->configuration_high_threshold        & 0x00ff );
-  SPI.transfer( ( this->configuration_low_threshold >> 8 )  & 0x00ff );
-  SPI.transfer(   this->configuration_low_threshold         & 0x00ff );
+  SPI.transfer( ( this->configuration_high_threshold >> 8 ) & 0x00ff ); //3
+  SPI.transfer(   this->configuration_high_threshold        & 0x00ff ); //4
+  SPI.transfer( ( this->configuration_low_threshold >> 8 )  & 0x00ff ); //4
+  SPI.transfer(   this->configuration_low_threshold         & 0x00ff ); //5
   digitalWrite( this->cs_pin, HIGH );
   SPI.endTransaction();
 }
@@ -212,8 +214,8 @@ void MAX31865_RTD::reconfigure_settings( )
  *
 */
 
-uint8_t MAX31865_RTD::read_all( )
-{
+uint8_t MAX31865_RTD::read_all( ) // 9 bytes sent to sensor
+{ 
   uint16_t combined_bytes;
 
   /* Start the read operation. */
@@ -257,6 +259,48 @@ uint8_t MAX31865_RTD::read_all( )
   return( status( ) );
 }
 
+uint8_t MAX31865_RTD::read_rtd_fault( ) // 5 bytes sent to sensor
+{
+  uint16_t combined_bytes;
+
+  // Read the RTD register
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
+  digitalWrite( this->cs_pin, LOW );
+  SPI.transfer( 0x01 );
+  combined_bytes  = SPI.transfer( 0x00 ) << 8;
+  combined_bytes |= SPI.transfer( 0x00 );
+  this->measured_resistance = combined_bytes >> 1;
+  digitalWrite( this->cs_pin, HIGH );
+  SPI.endTransaction();
+
+  // Read the Status register
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
+  digitalWrite( this->cs_pin, LOW );
+  SPI.transfer( 0x07 );
+  this->measured_status = SPI.transfer( 0x00 );
+  digitalWrite( this->cs_pin, HIGH );
+  SPI.endTransaction();
+
+  return( status( ) );
+}
+
+bool MAX31865_RTD::read_rtd( ) // 3 bytes sent to sensor
+{
+  uint16_t combined_bytes;
+  
+  // Read the RTD register
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE1));
+  digitalWrite( this->cs_pin, LOW );
+  SPI.transfer( 0x01 );
+  combined_bytes  = SPI.transfer( 0x00 ) << 8;
+  combined_bytes |= SPI.transfer( 0x00 );
+  bool fault = bool(combined_bytes & 0x01);
+  this->measured_resistance = combined_bytes >> 1;
+  digitalWrite( this->cs_pin, HIGH );
+  SPI.endTransaction();
+
+  return( fault );
+}
 
 /**
  * Apply the Callendar-Van Dusen equation to convert the RTD resistance
@@ -292,9 +336,9 @@ double MAX31865_RTD::temperature( ) const
   const double rtdNominal = ( this->type == RTD_PT100 ) ? RTD_RESISTANCE_PT100 : RTD_RESISTANCE_PT1000;
 
   Z1 = -RTD_A;
-  Z2 = RTD_A * RTD_A - (4 * RTD_B);
+  Z2 =  RTD_A * RTD_A - (4 * RTD_B);
   Z3 = (4 * RTD_B) / rtdNominal; 
-  Z4 = 2 * RTD_B;
+  Z4 =  2 * RTD_B;
 
   temp = Z2 + (Z3 * Rt);
   temp = (sqrt(temp) + Z1) / Z4;

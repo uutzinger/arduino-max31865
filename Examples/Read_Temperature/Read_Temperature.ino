@@ -35,12 +35,9 @@
 #include <SPI.h>
 #include <MAX31865.h>
 
-
 #define RTD_CS_PIN   10
 
-
 MAX31865_RTD rtd( MAX31865_RTD::RTD_PT100, RTD_CS_PIN );
-
 
 void setup()
 {
@@ -52,14 +49,22 @@ void setup()
   /* Allow the MAX31865 to warm up. */
   delay( 100 );
 
+  rtd.configure_thresholds(
+                 0x0000,    // Low Thresh 0x0000
+                 0x7fff );  // High Thresh 0x7fff
+
   /* Configure:  */
   /* Single Shot turn on V_BIAS before reading then turn off to reduce power dissipation */
-  /* Conversion Mode: If true, continouse conversion at 50 or 60Hz
+  /* Conversion Mode: If true, continuouse conversion at 50 or 60Hz */
   /* If auto conversion is true, V_BIAS needs to be on all the time */
   /* If auto conversion is off, start conversion by setting 1-shot to 1 and trigger measurement with CS going high */
   /* If V_BIAS is off it takes 10.5 * time constants to charge input RC network (about 10ms)*/
 
-  // clear fault and turn off vbias
+  // set wire
+  // turn off vbias
+  // clear fault
+  // no auto convert
+
   rtd.configure_control( 
                  false,     // V_BIAS enable
                  false,     // auto conversion
@@ -68,13 +73,8 @@ void setup()
                  MAX31865_FAULT_DETECTION_NONE, // fault detection 
                  true,      // fault status auto clear
                  false);     // true = 50Hz filter, false = 60Hz
-
-  rtd.configure_thresholds(
-                 0x0000,    // Low Thresh 0x0000
-                 0x7fff );  // High Thresh 0x7fff
 				 
 }
-
 
 void loop() 
 {
@@ -92,7 +92,7 @@ void loop()
   // wait until RC network has setteled
   delay(10);
   
-  // set one shot
+  // set one shot, this will start measurement
   rtd.configure_control(
                  true,     // V_BIAS enable
                  false,    // auto conversion
@@ -102,18 +102,23 @@ void loop()
                  false,    // fault status, auto clears
                  false);   // true = 50Hz filter, false = 60Hz
   
-  // enable conversion to complete
+  // wait until conversion is complete
   delay(65);
   
   //Read the MAX31865 registers in the following order:
-  //     Configuration
-  //     RTD
-  //     High Fault Threshold
-  //     Low Fault Threshold
-  //     Fault Status
-  // might want to read only RTD and fault
+  //     Configuration register
+  //     RTD register
+  //     High Fault Threshold register 
+  //     Low Fault Threshold register
+  //     Fault Status register
   uint8_t status = rtd.read_all( );
-  
+
+  // might want to read only RTD and fault registers
+  // uint8_t status = rtd.read_rtd( );
+
+  // might want to read only RTD
+  // if (rtd.read_rtd( )) {} // dont care about fault register
+
   // disable V_BIAS
   rtd.configure_control(
                  false,    // V_BIAS enable
