@@ -102,6 +102,9 @@ public:
   uint8_t        read_all( ); // sends 9 bytes to sensor
   uint8_t  read_rtd_fault( ); // sends 5 bytes to sensor
   bool           read_rtd( ); // sends 3 bytes to sensor
+  void enableBias(bool bias); // turns bias on or off
+  void     clearFaults(void); // clears the fault status
+  void         oneShot(void); // set one shot
   double      temperature( ) const;
   uint8_t          status( ) const { return( measured_status ); }
   uint16_t  low_threshold( ) const { return( measured_low_threshold ); }
