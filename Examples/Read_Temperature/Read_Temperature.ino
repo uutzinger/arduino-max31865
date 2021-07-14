@@ -49,10 +49,6 @@ void setup()
   /* Allow the MAX31865 to warm up. */
   delay( 100 );
 
-  rtd.configure_thresholds(
-                 0x0000,    // Low Thresh 0x0000
-                 0x7fff );  // High Thresh 0x7fff
-
   /* Configure:  */
   /* Single Shot turn on V_BIAS before reading then turn off to reduce power dissipation */
   /* Conversion Mode: If true, continuouse conversion at 50 or 60Hz */
@@ -74,6 +70,10 @@ void setup()
                  true,      // fault status auto clear
                  false);     // true = 50Hz filter, false = 60Hz
 				 
+  //rtd.configure_thresholds(
+  //               0x0000,    // Low Thresh 0x0000
+  //               0x7fff );  // High Thresh 0x7fff
+
 }
 
 void loop() 
@@ -129,8 +129,8 @@ void loop()
                  false,    // fault status, auto clears
                  false);   // true = 50Hz filter, false = 60Hz
 
-  if( status == 0 )
-  {
+  // if( status == 0 )
+  //{
     double temperature = rtd.temperature( );
     Serial.print( " T = ");
     Serial.print( temperature, 1 );
@@ -139,9 +139,9 @@ void loop()
     Serial.print( " R = ");
     Serial.print( resistance, 1 );
     Serial.println(" Ohms" );
-  }
-  else 
-  {
+  //}
+  //else 
+  //{
     Serial.print( "RTD fault register: " );
     Serial.print( status );
     Serial.print( ": " );
@@ -182,7 +182,7 @@ void loop()
                   MAX31865_FAULT_DETECTION_NONE, // fault detection
                   true,     // fault status, auto clears
                   false);   // true = 50Hz filter, false = 60Hz
-  }
+  //}
   
   delay( 1000 );
 }
