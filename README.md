@@ -17,7 +17,7 @@ There are two examples:
 - Read_Temperature.ino which is an example for reading temperature intermittently.
 - Read_Temperature_Auto.ino which measures at maximum repetition rate. Only the temperature register is read.
 
-The readout process for intermittend reading is
+The readout process for intermittent reading is
 ```
 Loop:  
   - enable V_BIAS 
@@ -28,7 +28,7 @@ Loop:
   - clear faults if necessary
   - long delay
 ```
-The readout process for FAST reading is
+The readout process for fast reading is
 ```
 Setup:   
   - enable V_BIAS 

@@ -33,7 +33,7 @@
  * 
  * Modifications Urs Utzinger 2021:
  * Rewrote SPI handling
- * Added fucntions to set configuration bits and clear faults
+ * Added functions to set configuration bits and clear faults
  * Added function to read only rtd register
  * Incorporated LUT temperature conversion from Daniel R. Haney
  **************************************************************************/
