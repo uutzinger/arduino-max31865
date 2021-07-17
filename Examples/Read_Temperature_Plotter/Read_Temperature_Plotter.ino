@@ -84,7 +84,7 @@ void setup()
     false,     // V_BIAS enable
     false,     // auto conversion
     false,     // 1-shot, start conversion when CS goes high 
-    false,     // 3-wire enable
+    true,      // 3-wire enable
     MAX31865_FAULT_DETECTION_NONE, // fault detection 
     false,      // fault status auto clear
     false);     // true = 50Hz filter, false = 60Hz
@@ -123,27 +123,22 @@ void loop()
 
     rtd.enableBias(false);  // disable V_BIAS
 
-    // Report registers and data
-    Serial.print( " T = ");                            Serial.print(   rtd.temperature(), 2);                               Serial.println(" deg C" );
-    Serial.print( " T_prec = ");                       Serial.print(   rtd.ohmsX100_to_celsius(rtd.resistance()*100.), 2 ); Serial.println(" deg C" );
-    Serial.print( " R = ");                            Serial.print(   rtd.resistance(), 1 );                               Serial.println(" Ohms" );
-    Serial.print(" Low  Threshold = ");                Serial.println( rtd.low_threshold(),HEX );
-    Serial.print(" High Threshold = ");                Serial.println( rtd.high_threshold(),HEX ); 
-    Serial.print(" Raw Resistance = ");                Serial.println( rtd.raw_resistance(),HEX ); 
-    Serial.print(" RTD fault register: " );            Serial.print( status );  
-    Serial.print( ": " );
-    if( status == 0)                                 { Serial.println( "No faults" ); }
-    else if( status & MAX31865_FAULT_HIGH_THRESHOLD ){ Serial.println( "RTD high threshold exceeded" ); }
-    else if( status & MAX31865_FAULT_LOW_THRESHOLD ) { Serial.println( "RTD low threshold exceeded" ); }
-    else if( status & MAX31865_FAULT_REFIN )         { Serial.println( "REFIN- > 0.85 x V_BIAS" ); }
-    else if( status & MAX31865_FAULT_REFIN_FORCE )   { Serial.println( "REFIN- < 0.85 x V_BIAS, FORCE- open" ); }
-    else if( status & MAX31865_FAULT_RTDIN_FORCE )   { Serial.println( "RTDIN- < 0.85 x V_BIAS, FORCE- open" ); }
-    else if( status & MAX31865_FAULT_VOLTAGE )       { Serial.println( "Overvoltage/undervoltage fault" ); }
-    else                                             { Serial.println( "Unknown fault; check connection" ); }
+    // Report data
+    Serial.println(rtd.temperature(), 2);
 
     // clear faults
-    if (status != 0) { rtd.clearFaults(); }
-    
+    if (status != 0) { 
+      Serial.print(" RTD fault register: " );            Serial.print( status );  
+      Serial.print( ": " );
+      if( status == 0)                                 { Serial.println( "No faults" ); }
+      else if( status & MAX31865_FAULT_HIGH_THRESHOLD ){ Serial.println( "RTD high threshold exceeded" ); }
+      else if( status & MAX31865_FAULT_LOW_THRESHOLD ) { Serial.println( "RTD low threshold exceeded" ); }
+      else if( status & MAX31865_FAULT_REFIN )         { Serial.println( "REFIN- > 0.85 x V_BIAS" ); }
+      else if( status & MAX31865_FAULT_REFIN_FORCE )   { Serial.println( "REFIN- < 0.85 x V_BIAS, FORCE- open" ); }
+      else if( status & MAX31865_FAULT_RTDIN_FORCE )   { Serial.println( "RTDIN- < 0.85 x V_BIAS, FORCE- open" ); }
+      else if( status & MAX31865_FAULT_VOLTAGE )       { Serial.println( "Overvoltage/undervoltage fault" ); }
+      else                                             { Serial.println( "Unknown fault; check connection" ); }
+      rtd.clearFaults(); }  
   }
   
   // Blink LED
