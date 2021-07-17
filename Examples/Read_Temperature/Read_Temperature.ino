@@ -43,10 +43,22 @@
 
 #define RTD_CS_PIN   10
 
+#define TEMP_INTERVAL        1000000    // 1 second between tempreature readings
+#define LEDON_INTERVAL        100000    // interval in microseconds between turning LED on/off for status report
+#define LEDOFF_INTERVAL       900000    // interval in microseconds between turning LED on/off for status report
+unsigned long currentTime;              //
+unsigned long nextLEDCheck;             //
+unsigned long nextTempRead;             //
+const int ledPin = 2;                   // Check on https://www.pjrc.com/teensy/pinout.html; pin can not be on pins needed for the SPI sensor
+bool ledStatus = false;                 // Led should be off at start up
+
 MAX31865_RTD rtd( MAX31865_RTD::RTD_PT100, RTD_CS_PIN );
 
 void setup()
 {
+
+  pinMode(ledPin, OUTPUT);    // sets the led pin to output
+
   Serial.begin( 115200 );
 
   /* Initialize SPI communication. */
@@ -80,47 +92,71 @@ void setup()
 
   /* Set Threshold:
    * Low Thershold and High Threshold
-	 */
+   */
 
   rtd.configure_thresholds(
     0x0000,    // Low Thresh 0x0000
     0xffff );  // High Thresh 0xffff
     // (uint16_t)((deg_C + 256.) * 32.) << 1
 
+  nextLEDCheck = micros();
+  nextTempRead = micros();
 }
 
 void loop() 
 {
-  rtd.enableBias(true);  // enable V_BIAS
-  delay(1);              // wait until RC network has setteled, no difference if set to 0 or 50
-  rtd.oneShot();         // trigger measurement
-  delay(65);             // wait until conversion is complete, 65ms from spec sheet but can go down to 45
+  // Time Keeper
+  currentTime = micros();
 
-  //Read the MAX31865 registers in the following order:  Configuration, RTD, High Fault, Low Fault, Fault Status
-  uint8_t status = rtd.read_all( );
-
-  rtd.enableBias(false);  // disable V_BIAS
-
-  // Report registers and data
-  Serial.print( " T = ");                            Serial.print(   rtd.temperature(), 2);                               Serial.println(" deg C" );
-  Serial.print( " T_prec = ");                       Serial.print(   rtd.ohmsX100_to_celsius(rtd.resistance()*100.), 2 ); Serial.println(" deg C" );
-  Serial.print( " R = ");                            Serial.print(   rtd.resistance(), 1 );                               Serial.println(" Ohms" );
-  Serial.print(" Low Threshold = ");                 Serial.println( rtd.low_threshold(),HEX );
-  Serial.print(" Low Threshold = ");                 Serial.println( rtd.high_threshold(),HEX ); 
-  Serial.print(" Raw Resistance = ");                Serial.println( rtd.raw_resistance(),HEX ); 
-  Serial.print(" RTD fault register: " );            Serial.print( status );  
-  Serial.print( ": " );
-  if( status == 0)                                 { Serial.println( "No faults" ); }
-  else if( status & MAX31865_FAULT_HIGH_THRESHOLD ){ Serial.println( "RTD high threshold exceeded" ); }
-  else if( status & MAX31865_FAULT_LOW_THRESHOLD ) { Serial.println( "RTD low threshold exceeded" ); }
-  else if( status & MAX31865_FAULT_REFIN )         { Serial.println( "REFIN- > 0.85 x V_BIAS" ); }
-  else if( status & MAX31865_FAULT_REFIN_FORCE )   { Serial.println( "REFIN- < 0.85 x V_BIAS, FORCE- open" ); }
-  else if( status & MAX31865_FAULT_RTDIN_FORCE )   { Serial.println( "RTDIN- < 0.85 x V_BIAS, FORCE- open" ); }
-  else if( status & MAX31865_FAULT_VOLTAGE )       { Serial.println( "Overvoltage/undervoltage fault" ); }
-  else                                             { Serial.println( "Unknown fault; check connection" ); }
-
-  // clear faults
-  if (status != 0) { rtd.clearFaults(); }
+  if (currentTime > nextTempRead) {
+    nextTempRead = currentTime + TEMP_INTERVAL;
   
-  delay( 1000 );
+    rtd.enableBias(true);  // enable V_BIAS
+    delay(1);              // wait until RC network has setteled, no difference if set to 0 or 50
+    rtd.oneShot();         // trigger measurement
+    delay(65);             // wait until conversion is complete, 65ms from spec sheet but can go down to 45
+
+    //Read the MAX31865 registers in the following order:  Configuration, RTD, High Fault, Low Fault, Fault Status
+    uint8_t status = rtd.read_all( );
+
+    rtd.enableBias(false);  // disable V_BIAS
+
+    // Report registers and data
+    Serial.print( " T = ");                            Serial.print(   rtd.temperature(), 2);                               Serial.println(" deg C" );
+    Serial.print( " T_prec = ");                       Serial.print(   rtd.ohmsX100_to_celsius(rtd.resistance()*100.), 2 ); Serial.println(" deg C" );
+    Serial.print( " R = ");                            Serial.print(   rtd.resistance(), 1 );                               Serial.println(" Ohms" );
+    Serial.print(" Low  Threshold = ");                Serial.println( rtd.low_threshold(),HEX );
+    Serial.print(" High Threshold = ");                Serial.println( rtd.high_threshold(),HEX ); 
+    Serial.print(" Raw Resistance = ");                Serial.println( rtd.raw_resistance(),HEX ); 
+    Serial.print(" RTD fault register: " );            Serial.print( status );  
+    Serial.print( ": " );
+    if( status == 0)                                 { Serial.println( "No faults" ); }
+    else if( status & MAX31865_FAULT_HIGH_THRESHOLD ){ Serial.println( "RTD high threshold exceeded" ); }
+    else if( status & MAX31865_FAULT_LOW_THRESHOLD ) { Serial.println( "RTD low threshold exceeded" ); }
+    else if( status & MAX31865_FAULT_REFIN )         { Serial.println( "REFIN- > 0.85 x V_BIAS" ); }
+    else if( status & MAX31865_FAULT_REFIN_FORCE )   { Serial.println( "REFIN- < 0.85 x V_BIAS, FORCE- open" ); }
+    else if( status & MAX31865_FAULT_RTDIN_FORCE )   { Serial.println( "RTDIN- < 0.85 x V_BIAS, FORCE- open" ); }
+    else if( status & MAX31865_FAULT_VOLTAGE )       { Serial.println( "Overvoltage/undervoltage fault" ); }
+    else                                             { Serial.println( "Unknown fault; check connection" ); }
+
+    // clear faults
+    if (status != 0) { rtd.clearFaults(); }
+    
+  }
+  
+  // Blink LED
+  if (currentTime > nextLEDCheck) {
+    if (ledStatus) {
+      // LED is ON
+      ledStatus = false; 
+      digitalWriteFast(ledPin, ledStatus);                        // turn off
+      nextLEDCheck = currentTime + LEDOFF_INTERVAL;
+    } else {
+      // LED is OFF
+      ledStatus = true;
+      digitalWriteFast(ledPin, ledStatus);                        // turn on
+      nextLEDCheck = currentTime + LEDON_INTERVAL;
+    }
+  }
+
 }
