@@ -1,11 +1,10 @@
 /**************************************************************************
- * MAX31865 Basic Example
+ * MAX31865 Example for Autoconversion
  *
  * Copyright (C) 2015 Ole Wolf <wolf@blazingangles.com>
  * PTD100 LUT Copyright (c) 2017, drhaney
- *
- * Example code that reads the temperature from an MAX31865 and outputs
- * it on the serial line.
+ * 
+ * Observe data in serial plotter
  * 
  * Wire the circuit as follows, assuming that level converters have been
  * added for the 3.3V signals:
@@ -63,12 +62,12 @@ void setup()
    * If V_BIAS is off it takes 10.5 * time constants to charge input RC network (about 10ms)
    */
 
-  // turn off vbias
-  // no auto convert
+  // turn on vbias
+  // auto convert
   // set wire
   rtd.configure_control( 
-    false,     // V_BIAS enable
-    false,     // auto conversion
+    true,     // V_BIAS enable
+    true,     // auto conversion
     false,     // 1-shot, start conversion when CS goes high 
     false,     // 3-wire enable
     MAX31865_FAULT_DETECTION_NONE, // fault detection 
@@ -91,36 +90,18 @@ void setup()
 
 void loop() 
 {
-  rtd.enableBias(true);  // enable V_BIAS
-  delay(1);              // wait until RC network has setteled, no difference if set to 0 or 50
-  rtd.oneShot();         // trigger measurement
-  delay(65);             // wait until conversion is complete, 65ms from spec sheet but can go down to 45
+  //Read the MAX31865 rtd register
+  bool status = rtd.read_rtd( );
 
-  //Read the MAX31865 registers in the following order:  Configuration, RTD, High Fault, Low Fault, Fault Status
-  uint8_t status = rtd.read_all( );
-
-  rtd.enableBias(false);  // disable V_BIAS
-
-  // Report registers and data
-  Serial.print( " T = ");                            Serial.print(   rtd.temperature(), 2);                               Serial.println(" deg C" );
-  Serial.print( " T_prec = ");                       Serial.print(   rtd.ohmsX100_to_celsius(rtd.resistance()*100.), 2 ); Serial.println(" deg C" );
-  Serial.print( " R = ");                            Serial.print(   rtd.resistance(), 1 );                               Serial.println(" Ohms" );
-  Serial.print(" Low Threshold = ");                 Serial.println( rtd.low_threshold(),HEX );
-  Serial.print(" Low Threshold = ");                 Serial.println( rtd.high_threshold(),HEX ); 
-  Serial.print(" Raw Resistance = ");                Serial.println( rtd.raw_resistance(),HEX ); 
-  Serial.print(" RTD fault register: " );            Serial.print( status );  
-  Serial.print( ": " );
-  if( status == 0)                                 { Serial.println( "No faults" ); }
-  else if( status & MAX31865_FAULT_HIGH_THRESHOLD ){ Serial.println( "RTD high threshold exceeded" ); }
-  else if( status & MAX31865_FAULT_LOW_THRESHOLD ) { Serial.println( "RTD low threshold exceeded" ); }
-  else if( status & MAX31865_FAULT_REFIN )         { Serial.println( "REFIN- > 0.85 x V_BIAS" ); }
-  else if( status & MAX31865_FAULT_REFIN_FORCE )   { Serial.println( "REFIN- < 0.85 x V_BIAS, FORCE- open" ); }
-  else if( status & MAX31865_FAULT_RTDIN_FORCE )   { Serial.println( "RTDIN- < 0.85 x V_BIAS, FORCE- open" ); }
-  else if( status & MAX31865_FAULT_VOLTAGE )       { Serial.println( "Overvoltage/undervoltage fault" ); }
-  else                                             { Serial.println( "Unknown fault; check connection" ); }
+  // Report data
+  // View in Serial Plotter
+  Serial.print( " T = ");  Serial.print(   rtd.ohmsX100_to_celsius(rtd.resistance()*100.), 2 ); Serial.println(" deg C" );
 
   // clear faults
-  if (status != 0) { rtd.clearFaults(); }
+  if (status == true) { 
+    Serial.println(" RTD fault occured " );  
+    rtd.clearFaults(); 
+}
   
-  delay( 1000 );
+  delay( 17 );  // minimum of 2-17ms for 60Hz, 2-20ms for 50Hz
 }

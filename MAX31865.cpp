@@ -2,8 +2,8 @@
  * Arduino driver library for the MAX31865.
  *
  * Copyright (C) 2015 Ole Wolf <wolf@blazingangles.com>
- *
- *
+ * PTD100 LUT Copyright (c) 2017, drhaney
+
  * Wire the circuit as follows, assuming that level converters have been
  * added for the 3.3V signals:
  *
@@ -21,15 +21,21 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * Modifications Urs Utzinger 2021:
+ * Rewrote SPI handling
+ * Added fucntions to set configuration bits and clear faults
+ * Added function to read only rtd register
+ * Incorporated LUT temperature conversion from Daniel R. Haney
 **************************************************************************/
 
 #include <SPI.h>
 #include <MAX31865.h>
+#include <pt100rtd.h>
 
 // MAX 31865 SPI Mode
 // -------------------
@@ -399,7 +405,6 @@ bool MAX31865_RTD::read_rtd( ) // 3 bytes sent to sensor
  */
 double MAX31865_RTD::temperature( ) const
 {
-  
   double Rt = double(resistance());
   double Z1, Z2, Z3, Z4, temperature, rpoly;
   const double rtdNominal = ( this->type == RTD_PT100 ) ? RTD_RESISTANCE_PT100 : RTD_RESISTANCE_PT1000;
@@ -431,4 +436,104 @@ double MAX31865_RTD::temperature( ) const
 
   return temperature;
 
+}
+
+/**********************************************************************
+** Function Name:	find_index
+**
+** Description:		binary search
+**  	if match
+**  	    return index of a match
+**  	if no match
+**  	    return index of the smallest table value > key
+** 
+**	usually requires the maximum of log2(1051) probes, == 10, 
+**	when search key is not an exact match.
+**
+**	Note: search must not return index == 0.
+**	Calling function must exclude boundary cases
+**	where (ohmsX100 <= table[0]).
+** 
+** Parameters:
+**		uint16_t ohmsX100
+**
+** Uses:
+** Returns:	int index of nearest resistance value
+** Creation: 1/26/2017 4:48a Daniel R. Haney
+**********************************************************************/
+
+int MAX31865_RTD::find_index(uint16_t ohmsX100)
+{
+    int lower = 0 ;
+    int upper = PT100_TABLE_MAXIDX ;
+    int mid = (lower + upper) / 2 ;
+
+    do {
+      uint16_t pt100val = pgm_read_word_near(&Pt100_table[mid]) ;      
+      if (pt100val == ohmsX100) { break; }
+      else if (pt100val < ohmsX100) { lower = mid + 1 ; }
+      else { upper = mid ; }
+      mid = (lower + upper) / 2 ;
+    } while (lower < upper)	;
+    return(mid);
+}
+
+/**********************************************************************
+** Function Name:	ohmsX100_to_celsius
+**
+** Description:
+** 	Look up (unsigned short int)(Pt100 resistance * 100) in table.
+**  	Interpolate temperature for intermediate resistances.
+** 
+** Parameters:
+**	uint16_t Rrtd = 100 * (Pt100 RTD resistance in ohms)
+**
+** Uses:	Pt100_table
+** Returns:	float temperature celsius
+**
+** Creation: 1/26/2017 10:41a Daniel R. Haney
+**********************************************************************/
+float MAX31865_RTD::ohmsX100_to_celsius (uint16_t ohmsX100)
+{
+    uint16_t R_upper, R_lower ;
+    int hundredths = 0 ; 		// STFU flag for avr-gcc
+    int iTemp = 0 ;
+    float celsius ;
+
+    // clip overflow
+    if (ohmsX100 <= pgm_read_word_near(&Pt100_table[0])) { return((float) CELSIUS_MIN); } 	                    // return min boundary temperature
+    else if (ohmsX100 >= pgm_read_word_near(&Pt100_table[PT100_TABLE_MAXIDX])) { return((float) CELSIUS_MAX); }	// return max boundary temperature
+    
+    int index = find_index(ohmsX100) ;
+	
+    // The minimum integral temperature
+    iTemp = index - 1 + CELSIUS_MIN ;
+	
+    // fetch floor() and ceiling() resistances since
+    // key = intermediate value is the most likely case.
+
+    // ACHTUNG!  (index == 0) is forbidden!
+    R_lower = pgm_read_word_near(&Pt100_table[index - 1]) ;
+    R_upper = pgm_read_word_near(&Pt100_table[index]) ;
+
+    // if key == table entry, temp is an integer degree
+    if (ohmsX100 == R_upper) {
+      iTemp++ ;
+      hundredths = 0 ;
+    } else if (ohmsX100 < R_upper) {     // an intermediate resistance is the common case
+      hundredths = ((100 * (ohmsX100 - R_lower)) / (R_upper - R_lower)) ;
+    } else if (ohmsX100 > R_upper)  {
+      // two unlikely cases are included for disaster recovery
+      /*NOTREACHED*/  /*...unless list search was dain bramaged */
+     	iTemp++ ;
+	    // risks index+1 out of range
+	    uint16_t Rnext = pgm_read_word_near(&Pt100_table[index + 1]) ;
+	    hundredths = (100 * (ohmsX100 - R_upper)) / (Rnext - R_upper) ;
+    } else	{
+      /*NOTREACHED*/  /*...except in cases of excessive tweakage at 2:30am */
+      hundredths = ((100 * (ohmsX100 - R_lower)) / (R_upper - R_lower)) ;
+    }
+
+    celsius  = (float)iTemp + (float)hundredths / 100.0 ;
+    return(celsius );
 }

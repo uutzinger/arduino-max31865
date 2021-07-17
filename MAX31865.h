@@ -1,7 +1,8 @@
 /**************************************************************************
  * Arduino driver library for the MAX31865.
  *
- * Copyright (C) 2015 Ole Wolf <wolf@blazingangles.com>
+ * Libary Copyright (C) 2015 Ole Wolf <wolf@blazingangles.com>
+ * PTD100 LUT Copyright (c) 2017, drhaney
  *
  * Wire the circuit as follows, assuming that level converters have been
  * added for the 3.3V signals:
@@ -20,11 +21,16 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * Modifications Urs Utzinger 2021:
+ * Rewrote SPI handling
+ * Added fucntions to set configuration bits and clear faults
+ * Added function to read only rtd register
+ * Incorporated LUT temperature conversion from Daniel R. Haney
  **************************************************************************/
 
 #ifndef _MAX31865_H
@@ -99,18 +105,19 @@ public:
   void configure_control    ( bool v_bias, bool conversion_mode, bool one_shot, bool three_wire,
                               uint8_t fault_cycle, bool fault_clear, bool filter_50hz);
   void configure_thresholds ( uint16_t low_threshold, uint16_t high_threshold );
-  uint8_t        read_all( ); // sends 9 bytes to sensor
-  uint8_t  read_rtd_fault( ); // sends 5 bytes to sensor
-  bool           read_rtd( ); // sends 3 bytes to sensor
-  void enableBias(bool bias); // turns bias on or off
-  void     clearFaults(void); // clears the fault status
-  void         oneShot(void); // set one shot
-  double      temperature( ) const;
-  uint8_t          status( ) const { return( measured_status ); }
-  uint16_t  low_threshold( ) const { return( measured_low_threshold ); }
-  uint16_t high_threshold( ) const { return( measured_high_threshold ); }
-  uint16_t raw_resistance( ) const { return( measured_resistance ); }
-  double       resistance( ) const
+  uint8_t           read_all( ); // sends 9 bytes to sensor
+  uint8_t     read_rtd_fault( ); // sends 5 bytes to sensor
+  bool              read_rtd( ); // sends 3 bytes to sensor
+  void            enableBias( bool bias ); // turns bias on or off
+  void           clearFaults( void ); // clears the fault status
+  void               oneShot( void ); // set one shot
+  double         temperature( ) const;
+  float ohmsX100_to_celsius ( uint16_t ohmsX100 );
+  uint8_t             status( ) const { return( measured_status ); }
+  uint16_t     low_threshold( ) const { return( measured_low_threshold ); }
+  uint16_t    high_threshold( ) const { return( measured_high_threshold ); }
+  uint16_t    raw_resistance( ) const { return( measured_resistance ); }
+  double          resistance( ) const
   {
     const double rtd_rref =
       ( this->type == RTD_PT100 ) ? (double)RTD_RREF_PT100 : (double)RTD_RREF_PT1000;
@@ -126,6 +133,7 @@ private:
   uint16_t configuration_high_threshold;
   void reconfigure_settings( );
   void reconfigure_thresholds( );
+  int find_index(uint16_t ohmsX100);
 
   /* Values read from the device. */
   uint8_t  measured_configuration;
